@@ -25,8 +25,13 @@ never owns runner activation, appliance deployment, or a custom executable.
   credential, release, or recovery control plane.
 - Deno compatibility and Forgejo Runner lifecycle are outside this repository.
 - The Forge image carries exact Rust and Node toolchains, common Unix build
-  tools, sccache, AWS CLI, and jq. It does not carry Go, Python, Deno, mcli,
-  age, linker policy, private trust, or runner logic.
+  tools, sccache, AWS CLI, jq, the Docker client, and Helm. It does not carry
+  Go, Python, Deno, mcli, age, linker policy, private trust, or runner logic.
+- The Docker client and Helm are clients only. The image carries no daemon and
+  no cluster, so a job that projects an image or a chart supplies its own
+  endpoint and credentials. Carrying them is what lets a release lane project
+  onto those media at all; withholding them made every such projection
+  undeclarable rather than merely unconfigured.
 - Release identity is an immutable image digest with anonymous public readback.
 
 ## Workflow

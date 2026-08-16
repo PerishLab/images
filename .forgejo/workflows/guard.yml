@@ -93,3 +93,18 @@ jobs:
             git --version
             curl --version
           '
+
+      # The image carries the Docker client and Helm, not a daemon and not a
+      # cluster: a job that projects an image or a chart supplies its own
+      # endpoint. Proving the clients run is therefore the whole claim, and
+      # `docker --version` is asked without a daemon on purpose.
+      - name: Prove projection clients
+        run: |
+          set -eu
+          image="${OCI_PREFIX}/forge:${TAG}"
+          docker run --rm "$image" sh -ec '
+            docker --version
+            helm version --short
+            helm package --help >/dev/null
+            helm push --help >/dev/null
+          '

@@ -1,6 +1,9 @@
 ARG RUST_IMAGE=docker.io/library/rust:1.97.0-bookworm@sha256:b5a086f64ffecaa4e283063184770107915756739598173e1f5712d6b34b84d0
 ARG AWS_IMAGE=public.ecr.aws/aws-cli/aws-cli:2.35.20@sha256:f311cee20d7a79db2fa5d97ee719e8cc1c1c32ecbb3230c4b4046af860862dfe
 ARG NODE_IMAGE=docker.io/library/node:24.18.0-bookworm-slim@sha256:d45d78e7929b46875bbd4e29bea672d5bc48186c6c3588306521c815e78352d6
+ARG DOCKER_IMAGE=docker.io/library/docker:27-cli@sha256:851f91d241214e7c6db86513b270d58776379aacc5eb9c4a87e5b47115e3065c
+ARG HELM_VERSION=v4.2.4
+ARG HELM_SHA256=c306b46f719b0a4da32d0f78ee21bf90ce8d602f15b22ab753f0674d1670a7f3
 
 FROM ${RUST_IMAGE} AS rust
 
@@ -8,6 +11,8 @@ RUN rustup component add clippy rustfmt \
     && cargo install --locked --version 0.16.0 --no-default-features sccache
 
 FROM ${AWS_IMAGE} AS aws
+
+FROM ${DOCKER_IMAGE} AS docker
 
 FROM ${NODE_IMAGE}
 
@@ -28,6 +33,10 @@ ENV CARGO_HOME=/usr/local/cargo \
 COPY --from=rust /usr/local/cargo /usr/local/cargo
 COPY --from=rust /usr/local/rustup /usr/local/rustup
 COPY --from=aws /usr/local/aws-cli /usr/local/aws-cli
+COPY --from=docker /usr/local/bin/docker /usr/local/bin/docker
+
+ARG HELM_VERSION
+ARG HELM_SHA256
 
 RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
     && apt-get -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=30 -o Acquire::Retries=3 update \
@@ -44,6 +53,14 @@ RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
         wget \
         xz-utils \
     && rm -rf /var/lib/apt/lists/* \
+    && helm=$(mktemp) \
+    && curl --fail --silent --show-error --location --retry 3 \
+        --output "$helm" \
+        "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" \
+    && printf '%s  %s\n' "$HELM_SHA256" "$helm" | sha256sum --check --status \
+    && tar --extract --gzip --file "$helm" --directory /usr/local/bin \
+        --strip-components 1 linux-amd64/helm \
+    && rm -f "$helm" \
     && mkdir /sccache \
     && rustc --version \
     && cargo --version \
@@ -54,4 +71,6 @@ RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
     && npm --version \
     && corepack --version \
     && aws --version \
-    && jq --version
+    && jq --version \
+    && docker --version \
+    && helm version
