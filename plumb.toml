@@ -1,4 +1,26 @@
-[[document]]
-strategy = "agent"
-source = [{ path = ".", seal = "0bd4bdc97d355a201ab4b23bbe64fed5a6bcff3bd2eb83b018a6fdcde4be1343" }]
-target-seal = "11d971dedf92a4fab3c237c2b6a40b9ae2ff95082a7eb252eb7b6a4953202d0f"
+[layout]
+
+[[layout.seat]]
+path = ".forgejo"
+note = "The canonical forge namespace and image publication workflow."
+
+[[layout.seat]]
+path = ".plumb"
+note = "Plumb-owned affirmation records."
+
+[[layout.file]]
+name = ["AGENTS.md"]
+rule = ["rule://seat/affirmed"]
+note = "The repository entrypoint is affirmed against its governed faces."
+
+[[layout.file]]
+name = ["LICENSE"]
+note = "Repository licensing."
+
+[[layout.file]]
+name = ["plumb.toml", "ectropy.toml"]
+note = "Governance declarations."
+
+[[layout.file]]
+name = ["Containerfile.forge", "docker-bake.hcl"]
+note = "The source and complete build graph for the one published Forge image."

@@ -7,7 +7,7 @@ fanout = 10
 file = 300
 markup = 8
 param = 4
-path = 4
+path = 3
 
 [module]
 roots = []
