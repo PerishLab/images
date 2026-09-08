@@ -1,5 +1,0 @@
-[[record]]
-target = "AGENTS.md"
-rule = "rule://seat/affirmed"
-authority = "d291edd56bbbe206bcb746f07bd38c0d91e93bf95593ac70e81294bde536781a"
-
