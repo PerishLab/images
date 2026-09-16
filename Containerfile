@@ -1,4 +1,4 @@
-ARG RUST_IMAGE=docker.io/library/rust:1.97.0-bookworm@sha256:b5a086f64ffecaa4e283063184770107915756739598173e1f5712d6b34b84d0
+ARG RUST_IMAGE=docker.io/library/rust:1.96.1-bookworm@sha256:a339861ae23e9abb272cea45dfafde21760d2ce6577a70f8a926153677902663
 ARG AWS_IMAGE=public.ecr.aws/aws-cli/aws-cli:2.35.20@sha256:f311cee20d7a79db2fa5d97ee719e8cc1c1c32ecbb3230c4b4046af860862dfe
 ARG NODE_IMAGE=docker.io/library/node:24.18.0-bookworm-slim@sha256:d45d78e7929b46875bbd4e29bea672d5bc48186c6c3588306521c815e78352d6
 ARG DOCKER_IMAGE=docker.io/library/docker:29.6.1-cli@sha256:a011361b7e7dbf51ba0db930a7b746a0bb80935ac1b2f5d892a989025c80fab6
@@ -7,7 +7,15 @@ ARG HELM_SHA256=c306b46f719b0a4da32d0f78ee21bf90ce8d602f15b22ab753f0674d1670a7f3
 
 FROM ${RUST_IMAGE} AS rust
 
-RUN rustup component add clippy rustfmt \
+RUN curl --fail --silent --show-error --location --retry 3 \
+        --output /tmp/rustup-init \
+        https://static.rust-lang.org/rustup/archive/1.29.1/x86_64-unknown-linux-gnu/rustup-init \
+    && printf '%s  %s\n' dda7234360b7f578ca8b0ddcb80145646fa61a67c1720a5abc7051b35c9fcb71 /tmp/rustup-init | sha256sum --check --status \
+    && chmod 755 /tmp/rustup-init \
+    && /tmp/rustup-init -y --no-modify-path --default-toolchain none \
+    && test "$(rustup --version)" = 'rustup 1.29.1 (d95a37b6a 2026-08-13)' \
+    && rm -f /tmp/rustup-init \
+    && rustup component add clippy rustfmt \
     && cargo install --locked --version 0.16.0 --no-default-features sccache
 
 FROM ${AWS_IMAGE} AS aws
@@ -92,7 +100,9 @@ RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
     && helm version \
     && helm package --help >/dev/null \
     && helm push --help >/dev/null \
-    && test "$(rustc --version | cut -d ' ' -f 2)" = 1.97.0 \
+    && test "$(rustup --version)" = 'rustup 1.29.1 (d95a37b6a 2026-08-13)' \
+    && test "$(rustc --version)" = 'rustc 1.96.1 (31fca3adb 2026-06-26)' \
+    && test "$(cargo --version)" = 'cargo 1.96.1 (356927216 2026-06-26)' \
     && test "$(node --version)" = v24.18.0 \
     && aws s3api put-object --generate-cli-skeleton input | jq -e 'has("IfNoneMatch") and has("IfMatch")'
 

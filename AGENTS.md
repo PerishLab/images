@@ -14,6 +14,10 @@ projection clients form one adopted tool environment. Do not split it into
 language-labelled images without distinct adopted job contracts. Corepack is
 not part of its bootstrap or consumption contract.
 
+Tool versions follow Plumb's locked Depot baseline. A newer base-image tag is
+not authority to advance that baseline; the final image proves the exact
+adopted compiler, package builder and toolchain manager before publication.
+
 Python 3.11 or newer with its standard library and system TLS trust is a shared
 workflow control capability. The image proves TOML, compression and TLS support
 at build time; jobs consume the digest-pinned runtime without installing it.
