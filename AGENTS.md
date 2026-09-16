@@ -9,10 +9,15 @@ credential, appliance route, dependency mirror, cluster, or runner lifecycle
 logic. Docker, Buildx, regctl and Helm are clients; execution authority and
 endpoints belong to the invoking environment.
 
-Rust, Node, independent pnpm, common Unix build tools, sccache, AWS CLI and the
+Rust, Node, independent pnpm, Python, common Unix build tools, sccache, AWS CLI and the
 projection clients form one adopted tool environment. Do not split it into
 language-labelled images without distinct adopted job contracts. Corepack is
 not part of its bootstrap or consumption contract.
+
+Python 3.11 or newer with its standard library and system TLS trust is a shared
+workflow control capability. The image proves TOML, compression and TLS support
+at build time; jobs consume the digest-pinned runtime without installing it.
+Product-specific planning and publication behavior remain in Plumb.
 
 Plumb's locked Depot profile owns repository governance and the release graph.
 Plumb owns the workflow, version line, marker, immutable OCI publication and

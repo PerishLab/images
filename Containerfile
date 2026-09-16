@@ -50,6 +50,7 @@ RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
         libssl-dev \
         openssh-client \
         pkg-config \
+        python3 \
         unzip \
         wget \
         xz-utils \
@@ -83,6 +84,7 @@ RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
     && cargo clippy --version \
     && sccache --version \
     && node --version \
+    && python3 -c 'import gzip, hashlib, json, ssl, subprocess, sys, tarfile, tomllib, urllib.request, zipfile; assert sys.version_info >= (3, 11); assert tomllib.loads("ready = true")["ready"]; assert ssl.create_default_context().get_ca_certs(); assert gzip.decompress(gzip.compress(b"forge")) == b"forge"; print(sys.version)' \
     && test "$(pnpm --version)" = "$PNPM_VERSION" \
     && aws --version \
     && jq --version \
