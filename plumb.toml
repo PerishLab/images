@@ -1,0 +1,14 @@
+[layout]
+
+[[layout.file]]
+name = [".gitattributes"]
+note = "Git attribute policy."
+
+[[layout.file]]
+name = ["Containerfile"]
+note = "The source of the one shared Guard execution image."
+
+[release.oci]
+registry = "ghcr.io"
+image = "perishlab/images"
+account = "PerishLab"
