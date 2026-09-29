@@ -8,6 +8,10 @@ note = "Git attribute policy."
 name = ["Containerfile"]
 note = "The source of the one shared Guard execution image."
 
+[release]
+product = "images"
+authority = "https://releases.images.perish.uk"
+
 [release.oci]
 registry = "ghcr.io"
 image = "perishlab/images"

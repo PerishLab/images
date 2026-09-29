@@ -4,7 +4,9 @@ Images owns the contents of the one shared perish.code Guard execution image.
 GitHub is the canonical source and `ghcr.io/perishlab/images` is the public OCI
 authority. Wharf distributes the tracked recipe; Plumb owns Guard policy,
 prerequisite resolution and execution-world evidence; `PerishLab/.github` owns
-organization workflow adoption.
+organization workflow adoption. Wharf's distribution record is read through
+`https://releases.images.perish.uk`; it is release evidence, not a second image
+authority.
 
 The image supplies adopted tools, not repository policy. It owns no runner,
 registration, daemon, host lifecycle, credential, private CA, dependency mirror
