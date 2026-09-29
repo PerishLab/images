@@ -1,35 +1,26 @@
-# Agents
+# Images
 
-Images owns the content of the single Forge job image in `Containerfile`.
-Its purpose is to supply the adopted shared job tools, not to register runners,
-deploy appliances, configure a daemon, or introduce a custom executable.
+Images owns the contents of the one shared perish.code Guard execution image.
+GitHub is the canonical source and `ghcr.io/perishlab/images` is the public OCI
+authority. Wharf distributes the tracked recipe; Plumb owns Guard policy,
+prerequisite resolution and execution-world evidence; `PerishLab/.github` owns
+organization workflow adoption.
 
-Every base image is public and digest-pinned. The image carries no private CA,
-credential, appliance route, dependency mirror, cluster, or runner lifecycle
-logic. Docker, Buildx, regctl and Helm are clients; execution authority and
-endpoints belong to the invoking environment.
+The image supplies adopted tools, not repository policy. It owns no runner,
+registration, daemon, host lifecycle, credential, private CA, dependency mirror
+or endpoint. Docker, Buildx, regctl, Helm and AWS are clients whose authority is
+provided by the invoking environment.
 
-Rust, Node, independent pnpm, Python, common Unix build tools, sccache, AWS CLI and the
-projection clients form one adopted tool environment. Do not split it into
-language-labelled images without distinct adopted job contracts. Corepack is
-not part of its bootstrap or consumption contract.
+Rust, Node, independent pnpm, Python, common Unix build tools, sccache and the
+projection clients form one environment. Do not split them into language images
+without distinct adopted job contracts. Corepack is not part of the bootstrap or
+consumption contract.
 
-Tool versions follow Plumb's locked Depot baseline. A newer base-image tag is
-not authority to advance that baseline; the final image proves the exact
-adopted compiler, package builder and toolchain manager before publication.
+Every base and downloaded tool is public and pinned by digest or checksum. The
+recipe proves exact adopted versions and mixed-language capability at build time.
+It must not export cache, compiler or build-policy variables that can shadow the
+repository world Plumb records.
 
-Python 3.11 or newer with its standard library and system TLS trust is a shared
-workflow control capability. The image proves TOML, compression and TLS support
-at build time; jobs consume the digest-pinned runtime without installing it.
-Product-specific planning and publication behavior remain in Plumb.
-
-Plumb's locked Depot profile owns repository governance and the release graph.
-Plumb owns the workflow, version line, marker, immutable OCI publication and
-explicit local recovery. This repository owns no workflow or Bake graph.
-Build-time checks in the image recipe prove its tool and mixed-language
-capabilities; successful publication still requires anonymous OCI readback.
-
-`git.perish.top/PerishFire/images` is canonical source and
-`git.perish.top/perishfire/images/forge` is canonical OCI authority.
-GitHub is a one-way source mirror, not a release or recovery control plane.
-Do not execute untrusted pull-request builds against a host Docker socket.
+Publication is an attachment-only Wharf release from the committed source tree.
+It succeeds only after anonymous digest readback. A published digest is immutable;
+rotation and retirement begin from an Issue and publish a new marker and digest.
