@@ -24,15 +24,12 @@ FROM ${DOCKER_IMAGE} AS docker
 
 FROM ${NODE_IMAGE}
 
-LABEL org.opencontainers.image.source="https://git.perish.top/PerishFire/images"
-LABEL org.opencontainers.image.description="Perish Forge job image"
+LABEL org.opencontainers.image.source="https://github.com/PerishLab/images"
+LABEL org.opencontainers.image.description="Perish Guard execution image"
 
 ENV CARGO_HOME=/usr/local/cargo \
     RUSTUP_HOME=/usr/local/rustup \
-    PATH=/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin \
-    RUSTC_WRAPPER=sccache \
-    SCCACHE_DIR=/sccache \
-    CARGO_INCREMENTAL=0
+    PATH=/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin
 
 COPY --from=rust /usr/local/cargo /usr/local/cargo
 COPY --from=rust /usr/local/rustup /usr/local/rustup
@@ -84,7 +81,6 @@ RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
         "https://github.com/regclient/regclient/releases/download/${REGCTL_VERSION}/regctl-linux-amd64" \
     && printf '%s  %s\n' "$REGCTL_SHA256" /usr/local/bin/regctl | sha256sum --check --status \
     && chmod 755 /usr/local/bin/regctl \
-    && mkdir /sccache \
     && rustc --version \
     && cargo --version \
     && rustfmt --version \
@@ -106,12 +102,12 @@ RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
     && test "$(node --version)" = v24.18.0 \
     && aws s3api put-object --generate-cli-skeleton input | jq -e 'has("IfNoneMatch") and has("IfMatch")'
 
-RUN printf 'fn main(){print!("forge");}' >/tmp/forge.rs \
-    && rustc /tmp/forge.rs -o /tmp/forge \
-    && test "$(node -e 'process.stdout.write(require("node:child_process").execFileSync("/tmp/forge"))')" = forge \
-    && rm -f /tmp/forge.rs /tmp/forge
+RUN printf 'fn main(){print!("images");}' >/tmp/probe.rs \
+    && rustc /tmp/probe.rs -o /tmp/probe \
+    && test "$(node -e 'process.stdout.write(require("node:child_process").execFileSync("/tmp/probe"))')" = images \
+    && rm -f /tmp/probe.rs /tmp/probe
 
 RUN apt-get -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=30 -o Acquire::Retries=3 update \
     && apt-get -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=30 -o Acquire::Retries=3 install -y --no-install-recommends python3 \
     && rm -rf /var/lib/apt/lists/* \
-    && python3 -c 'import gzip, hashlib, json, ssl, subprocess, sys, tarfile, tomllib, urllib.request, zipfile; assert sys.version_info >= (3, 11); assert tomllib.loads("ready = true")["ready"]; assert ssl.create_default_context().get_ca_certs(); assert gzip.decompress(gzip.compress(b"forge")) == b"forge"; print(sys.version)'
+    && python3 -c 'import gzip, hashlib, json, ssl, subprocess, sys, tarfile, tomllib, urllib.request, zipfile; assert sys.version_info >= (3, 11); assert tomllib.loads("ready = true")["ready"]; assert ssl.create_default_context().get_ca_certs(); assert gzip.decompress(gzip.compress(b"images")) == b"images"; print(sys.version)'
