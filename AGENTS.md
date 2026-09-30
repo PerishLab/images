@@ -1,5 +1,10 @@
 # Images
 
+Read the canonical [PerishLab delivery governance](https://github.com/PerishLab/.github/blob/main/GOVERNANCE.md)
+at work start and again before delivery or Issue closure. That document owns
+organization-wide Issue, pull-request and acceptance policy; this file keeps
+repository-specific constraints without copying that policy.
+
 Images owns the contents of the one shared perish.code Guard execution image.
 GitHub is the canonical source and `ghcr.io/perishlab/images` is the public OCI
 authority. Wharf distributes the tracked recipe; Plumb owns Guard policy,
