@@ -1,6 +1,6 @@
-ARG RUST_IMAGE=docker.io/library/rust:1.96.1-bookworm@sha256:a339861ae23e9abb272cea45dfafde21760d2ce6577a70f8a926153677902663
+ARG RUST_IMAGE=docker.io/library/rust:1.96.1-trixie@sha256:1f0dbad1df66647807e6952d1db85d0b2bda7606cb2139d82517e4f009967376
 ARG AWS_IMAGE=public.ecr.aws/aws-cli/aws-cli:2.35.20@sha256:f311cee20d7a79db2fa5d97ee719e8cc1c1c32ecbb3230c4b4046af860862dfe
-ARG NODE_IMAGE=docker.io/library/node:24.18.0-bookworm-slim@sha256:d45d78e7929b46875bbd4e29bea672d5bc48186c6c3588306521c815e78352d6
+ARG NODE_IMAGE=docker.io/library/node:24.18.0-trixie-slim@sha256:ae91dcc111a68c9d2d81ff2a17bda61be126426176fde6fe7d08ab13b7f50573
 ARG DOCKER_IMAGE=docker.io/library/docker:29.6.1-cli@sha256:a011361b7e7dbf51ba0db930a7b746a0bb80935ac1b2f5d892a989025c80fab6
 ARG HELM_VERSION=v4.2.4
 ARG HELM_SHA256=c306b46f719b0a4da32d0f78ee21bf90ce8d602f15b22ab753f0674d1670a7f3
@@ -100,7 +100,23 @@ RUN ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
     && test "$(rustc --version)" = 'rustc 1.96.1 (31fca3adb 2026-06-26)' \
     && test "$(cargo --version)" = 'cargo 1.96.1 (356927216 2026-06-26)' \
     && test "$(node --version)" = v24.18.0 \
+    && test "$(getconf GNU_LIBC_VERSION)" = 'glibc 2.41' \
     && aws s3api put-object --generate-cli-skeleton input | jq -e 'has("IfNoneMatch") and has("IfMatch")'
+
+RUN control_home=$(mktemp -d) \
+    && curl --fail --silent --show-error --location --retry 3 \
+        --output /tmp/manage-plumb.sh \
+        https://releases.plumb.perish.uk/manage.sh \
+    && HOME="$control_home" PLUMB_CHANNEL=stable PLUMB_VERSION= \
+        sh /tmp/manage-plumb.sh install \
+    && "$control_home/.local/bin/plumb" --version \
+    && curl --fail --silent --show-error --location --retry 3 \
+        --output /tmp/manage-ectropy.sh \
+        https://releases.ectropy.perish.uk/manage.sh \
+    && HOME="$control_home" ECTROPY_CHANNEL=stable ECTROPY_VERSION= \
+        sh /tmp/manage-ectropy.sh install \
+    && "$control_home/.local/bin/ectropy" --version \
+    && rm -rf "$control_home" /tmp/manage-plumb.sh /tmp/manage-ectropy.sh
 
 RUN printf 'fn main(){print!("images");}' >/tmp/probe.rs \
     && rustc /tmp/probe.rs -o /tmp/probe \
