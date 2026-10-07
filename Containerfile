@@ -131,3 +131,96 @@ RUN apt-get -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=30 -o Acquire::
     && apt-get -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=30 -o Acquire::Retries=3 install -y --no-install-recommends python3 \
     && rm -rf /var/lib/apt/lists/* \
     && python3 -c 'import gzip, hashlib, json, ssl, subprocess, sys, tarfile, tomllib, urllib.request, zipfile; assert sys.version_info >= (3, 11); assert tomllib.loads("ready = true")["ready"]; assert ssl.create_default_context().get_ca_certs(); assert gzip.decompress(gzip.compress(b"images")) == b"images"; print(sys.version)'
+
+RUN test -x /usr/sbin/policy-rc.d \
+    && policy_status=0 && /usr/sbin/policy-rc.d ssh start || policy_status=$?; \
+    test "$policy_status" = 101 \
+    && apt-get -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=30 -o Acquire::Retries=3 update \
+    && ssh_version=$(dpkg-query -W -f='${Version}' openssh-client) \
+    && DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=30 -o Acquire::Retries=3 install -y --no-install-recommends "openssh-server=$ssh_version" \
+    && /usr/sbin/update-rc.d -f ssh remove \
+    && find /etc/systemd/system -type l \( -lname '*/ssh.service' -o -lname '*/ssh.socket' -o -lname '*/sshd-keygen.service' \) -delete \
+    && rm -f /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_host_rsa_key.pub \
+        /etc/ssh/ssh_host_ecdsa_key /etc/ssh/ssh_host_ecdsa_key.pub \
+        /etc/ssh/ssh_host_ed25519_key /etc/ssh/ssh_host_ed25519_key.pub \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -s /usr/sbin/sshd /usr/local/bin/sshd \
+    && install -d -m 0755 /run/sshd \
+    && test -z "$(find /etc/ssh -maxdepth 1 -name 'ssh_host_*' -print)" \
+    && test -z "$(find /etc/systemd/system -type l \( -lname '*/ssh.service' -o -lname '*/ssh.socket' -o -lname '*/sshd-keygen.service' \) -print)"
+
+RUN --network=none python3 - <<'PY'
+import os
+from pathlib import Path
+import shutil
+import socket
+import subprocess
+import tempfile
+import time
+
+sshd = shutil.which("sshd")
+assert sshd and os.path.isabs(sshd)
+assert not list(Path("/etc/ssh").glob("ssh_host_*"))
+user = "images-ssh-smoke"
+subprocess.run(["/usr/sbin/useradd", "--no-create-home", "--shell", "/bin/sh", "--password", "x", user], check=True)
+try:
+    with tempfile.TemporaryDirectory(prefix="images-ssh-") as temporary:
+        root = Path(temporary)
+        root.chmod(0o755)
+        host = root / "host"
+        identity = root / "identity"
+        for key in (host, identity):
+            subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(key)], check=True)
+        authorized = root / "authorized_keys"
+        authorized.write_bytes(identity.with_suffix(".pub").read_bytes())
+        authorized.chmod(0o644)
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1", 0))
+            port = reservation.getsockname()[1]
+        config = root / "sshd_config"
+        config.write_text("\n".join([
+            "ListenAddress 127.0.0.1", f"Port {port}", f"HostKey {host}",
+            f"PidFile {root / 'sshd.pid'}", f"AuthorizedKeysFile {authorized}",
+            "PasswordAuthentication no", "KbdInteractiveAuthentication no",
+            "PubkeyAuthentication yes", "UsePAM no", "StrictModes no",
+            f"AllowUsers {user}", "AllowTcpForwarding no", "X11Forwarding no",
+            "PermitTunnel no", "PermitUserEnvironment no", "LogLevel ERROR", "",
+        ]))
+        subprocess.run([sshd, "-t", "-f", str(config)], check=True)
+        with (root / "sshd.log").open("w+") as log:
+            server = subprocess.Popen([sshd, "-D", "-e", "-f", str(config)], stdout=log, stderr=log)
+            try:
+                for attempt in range(100):
+                    assert server.poll() is None, "isolated sshd exited before accepting connections"
+                    try:
+                        with socket.create_connection(("127.0.0.1", port), timeout=0.1):
+                            break
+                    except OSError:
+                        time.sleep(0.05)
+                else:
+                    raise AssertionError("isolated sshd did not start within five seconds")
+                result = subprocess.run([
+                    "ssh", "-F", "/dev/null", "-i", str(identity), "-p", str(port),
+                    "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes",
+                    "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
+                    "-o", "GlobalKnownHostsFile=/dev/null", "-o", "ConnectTimeout=5",
+                    f"{user}@127.0.0.1", "printf images-ssh",
+                ], check=True, capture_output=True, text=True, timeout=10)
+                assert result.stdout == "images-ssh"
+            finally:
+                server.terminate()
+                try:
+                    server.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    server.kill()
+                    server.wait(timeout=5)
+            with socket.socket() as stopped:
+                stopped.settimeout(1)
+                assert stopped.connect_ex(("127.0.0.1", port)) != 0
+        assert server.poll() is not None
+    assert not root.exists()
+finally:
+    subprocess.run(["/usr/sbin/userdel", user], check=True)
+assert not list(Path("/etc/ssh").glob("ssh_host_*"))
+print("isolated OpenSSH startup, authentication and cleanup passed")
+PY
