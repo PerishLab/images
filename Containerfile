@@ -140,6 +140,7 @@ RUN test -x /usr/sbin/policy-rc.d \
     && DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::ForceIPv4=true -o Acquire::http::Timeout=30 -o Acquire::Retries=3 install -y --no-install-recommends "openssh-server=$ssh_version" \
     && /usr/sbin/update-rc.d -f ssh remove \
     && find /etc/systemd/system -type l \( -lname '*/ssh.service' -o -lname '*/ssh.socket' -o -lname '*/sshd-keygen.service' \) -delete \
+    && truncate --size 0 /etc/machine-id \
     && rm -f /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_host_rsa_key.pub \
         /etc/ssh/ssh_host_ecdsa_key /etc/ssh/ssh_host_ecdsa_key.pub \
         /etc/ssh/ssh_host_ed25519_key /etc/ssh/ssh_host_ed25519_key.pub \
@@ -147,6 +148,7 @@ RUN test -x /usr/sbin/policy-rc.d \
     && ln -s /usr/sbin/sshd /usr/local/bin/sshd \
     && install -d -m 0755 /run/sshd \
     && test -z "$(find /etc/ssh -maxdepth 1 -name 'ssh_host_*' -print)" \
+    && test ! -s /etc/machine-id \
     && test -z "$(find /etc/systemd/system -type l \( -lname '*/ssh.service' -o -lname '*/ssh.socket' -o -lname '*/sshd-keygen.service' \) -print)"
 
 RUN --network=none python3 - <<'PY'
@@ -161,6 +163,7 @@ import time
 sshd = shutil.which("sshd")
 assert sshd and os.path.isabs(sshd)
 assert not list(Path("/etc/ssh").glob("ssh_host_*"))
+assert not Path("/etc/machine-id").read_bytes()
 user = "images-ssh-smoke"
 subprocess.run(["/usr/sbin/useradd", "--no-create-home", "--shell", "/bin/sh", "--password", "x", user], check=True)
 try:
@@ -222,5 +225,6 @@ try:
 finally:
     subprocess.run(["/usr/sbin/userdel", user], check=True)
 assert not list(Path("/etc/ssh").glob("ssh_host_*"))
+assert not Path("/etc/machine-id").read_bytes()
 print("isolated OpenSSH startup, authentication and cleanup passed")
 PY
