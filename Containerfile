@@ -110,6 +110,10 @@ RUN control_home=$(mktemp -d) \
     && HOME="$control_home" PLUMB_CHANNEL=stable PLUMB_VERSION= \
         sh /tmp/manage-plumb.sh install \
     && "$control_home/.local/bin/plumb" --version \
+    && test "$(rustup default)" = "$("$control_home/.local/bin/plumb" metadata rust.version)-x86_64-unknown-linux-gnu (default)" \
+    && test "$(rustc --version | cut -d ' ' -f 2)" = "$("$control_home/.local/bin/plumb" metadata rust.version)" \
+    && test "$(node --version)" = "v$("$control_home/.local/bin/plumb" metadata node.version)" \
+    && test "$(pnpm --version)" = "$("$control_home/.local/bin/plumb" metadata pnpm.version)" \
     && curl --fail --silent --show-error --location --retry 3 \
         --output /tmp/manage-ectropy.sh \
         https://releases.ectropy.perish.uk/manage.sh \
