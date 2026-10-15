@@ -8,8 +8,10 @@ note = "Git attribute policy."
 name = ["Containerfile"]
 note = "The source of the one shared Guard execution image."
 
+[identity]
+ns = "images"
+
 [release]
-product = "images"
 authority = "https://releases.images.perish.uk"
 
 [release.oci]
