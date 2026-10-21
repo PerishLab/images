@@ -15,8 +15,21 @@ RUN curl --fail --silent --show-error --location --retry 3 \
     && /tmp/rustup-init -y --no-modify-path --default-toolchain none \
     && test "$(rustup --version)" = 'rustup 1.29.1 (d95a37b6a 2026-08-13)' \
     && rm -f /tmp/rustup-init \
-    && rustup component add clippy rustfmt \
-    && cargo install --locked --version 0.16.0 --no-default-features sccache
+    && rustup component add clippy rustfmt
+
+COPY sccache.patch /tmp/sccache.patch
+
+ARG SCCACHE_VERSION=0.16.0
+ARG SCCACHE_SHA256=d4462c4a5371468689d3e13b4f1eef708e547010cdf19613debe25a7799a6c53
+
+RUN curl --fail --silent --show-error --location --retry 3 \
+        --output /tmp/sccache.crate \
+        "https://static.crates.io/crates/sccache/sccache-${SCCACHE_VERSION}.crate" \
+    && printf '%s  %s\n' "$SCCACHE_SHA256" /tmp/sccache.crate | sha256sum --check --status \
+    && tar --extract --gzip --file /tmp/sccache.crate --directory /tmp \
+    && patch --directory "/tmp/sccache-${SCCACHE_VERSION}" --strip 1 --fuzz 0 < /tmp/sccache.patch \
+    && cargo install --locked --no-default-features --path "/tmp/sccache-${SCCACHE_VERSION}" \
+    && rm -rf /tmp/sccache.crate /tmp/sccache.patch "/tmp/sccache-${SCCACHE_VERSION}"
 
 FROM ${AWS_IMAGE} AS aws
 
@@ -227,4 +240,73 @@ finally:
 assert not list(Path("/etc/ssh").glob("ssh_host_*"))
 assert not Path("/etc/machine-id").read_bytes()
 print("isolated OpenSSH startup, authentication and cleanup passed")
+PY
+
+RUN --network=none python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import tempfile
+
+with tempfile.TemporaryDirectory(prefix="images-clippy-") as temporary:
+    root = Path(temporary)
+    (root / "src").mkdir()
+    (root / "Cargo.toml").write_text('[package]\nname="images-cache-probe"\nversion="0.1.0"\nedition="2024"\n')
+    source = root / "src/lib.rs"
+    source.write_text("pub fn value(input: bool) -> bool { if input { true } else { false } }\n")
+    rustc = subprocess.check_output(["rustup", "which", "rustc"], text=True).strip()
+    assert os.path.isabs(rustc)
+    environment = dict(os.environ, CARGO_TARGET_DIR=str(root / "target"), CARGO_INCREMENTAL="0", RUSTC=rustc, RUSTC_WRAPPER=shutil.which("sccache"), SCCACHE_DIR=str(root / "cache"), SCCACHE_SERVER_PORT="0")
+    control = lambda *args: subprocess.run(["sccache", *args], env=environment, cwd=root, capture_output=True, text=True, check=True)
+    started = control("--start-server")
+    endpoint = re.search(r"Listening on address 127\.0\.0\.1:(\d+)", started.stdout)
+    assert endpoint, started.stdout
+    environment["SCCACHE_SERVER_PORT"] = endpoint.group(1)
+    results = []
+
+    def compile(name, flag, expected, cached=True, targets=("--lib",), program="clippy"):
+        shutil.rmtree(root / "target", ignore_errors=True)
+        control("--zero-stats")
+        child = environment.copy()
+        if not cached:
+            child.pop("RUSTC_WRAPPER")
+        command = ["cargo", program, "--locked", "--offline", *targets]
+        if flag:
+            command.extend(["--", flag])
+        process = subprocess.run(command, env=child, cwd=root, capture_output=True, text=True, timeout=60)
+        stats = json.loads(control("--show-stats", "--stats-format", "json").stdout)["stats"]
+        hit = sum(stats["cache_hits"]["counts"].values())
+        miss = sum(stats["cache_misses"]["counts"].values())
+        assert process.returncode == expected, process.stderr
+        assert stats["not_cached"].get("multiple input files", 0) == 0, stats
+        results.append(dict(name=name, status=process.returncode, hits=hit, misses=miss, uncacheable=stats["not_cached"]))
+        return process, hit, miss
+
+    try:
+        subprocess.run(["cargo", "generate-lockfile", "--offline"], env=environment, cwd=root, check=True, capture_output=True)
+        _, hit, miss = compile("library-cold", "-Aclippy::needless_bool", 0)
+        assert (hit, miss) == (0, 1), results
+        _, hit, miss = compile("library-warm-empty-target", "-Aclippy::needless_bool", 0)
+        assert (hit, miss) == (1, 0), results
+        source.write_text(source.read_text() + "pub const CHANGED: u8 = 1;\n")
+        _, hit, miss = compile("source-changed", "-Aclippy::needless_bool", 0)
+        assert (hit, miss) == (0, 1), results
+        _, hit, miss = compile("source-warm-empty-target", "-Aclippy::needless_bool", 0)
+        assert (hit, miss) == (1, 0), results
+        denied, hit, miss = compile("lint-denied", "-Dclippy::needless_bool", 101)
+        assert "needless_bool" in denied.stderr and hit == 0, results
+        direct, _, _ = compile("lint-denied-direct", "-Dclippy::needless_bool", 101, cached=False)
+        assert "needless_bool" in direct.stderr
+        _, hit, miss = compile("ordinary-rustc-cold", None, 0, program="check")
+        assert (hit, miss) == (0, 1), results
+        _, hit, miss = compile("ordinary-rustc-warm-empty-target", None, 0, program="check")
+        assert (hit, miss) == (1, 0), results
+        compile("test-target-limit", "-Aclippy::needless_bool", 0, targets=("--tests",))
+        assert results[-1]["uncacheable"].get("crate-type", 0) >= 1, results
+        print(json.dumps(dict(rustc=rustc, results=results)))
+    finally:
+        control("--stop-server")
 PY
