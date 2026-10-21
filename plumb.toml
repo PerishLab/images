@@ -8,6 +8,10 @@ note = "Git attribute policy."
 name = ["Containerfile"]
 note = "The source of the one shared Guard execution image."
 
+[[layout.file]]
+name = ["sccache.patch"]
+note = "The narrow Clippy argument correction applied to the checksum-pinned sccache source archive."
+
 [identity]
 ns = "images"
 

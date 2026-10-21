@@ -1,0 +1,18 @@
+--- a/src/compiler/rust.rs
++++ b/src/compiler/rust.rs
+@@ -1181,6 +1181,15 @@
+                     Argument::Raw(ref val) => {
+                         if idx == 0 {
+                             if let Some(value) = val.to_str() {
++                                if Path::new(value).is_absolute()
++                                    && matches!(
++                                        Path::new(value).file_name().and_then(|name| name.to_str()),
++                                        Some("rustc" | "rustc.exe")
++                                    )
++                                {
++                                    args.push(arg.normalize(NormalizedDisposition::Separated));
++                                    continue;
++                                }
+                                 if value == "rustc" {
+                                     // If the first argument is rustc, it's likely called via clippy-driver,
+                                     // so it's not actually an input file, which means we should discount it.
